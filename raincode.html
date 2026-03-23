@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Matrix Rain — Vah MaNa</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #020B1A; overflow: hidden; width: 100vw; height: 100vh; }
+  canvas { display: block; }
+
+  .controls {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: rgba(2,11,26,0.9);
+    border: 1px solid rgba(0,242,255,0.22);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #00F2FF;
+    z-index: 10;
+  }
+  .controls label { color: rgba(0,242,255,0.6); }
+  .controls input[type=range] { accent-color: #00F2FF; width: 80px; }
+  .controls span { min-width: 20px; text-align: center; }
+  .controls button {
+    background: transparent;
+    border: 1px solid rgba(0,242,255,0.22);
+    color: #00F2FF;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .controls button:hover { background: rgba(0,242,255,0.07); }
+  .controls button.hide-btn {
+    border-color: rgba(139,92,246,0.4);
+    color: #8B5CF6;
+  }
+
+  .badge {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: rgba(0,242,255,0.4);
+    letter-spacing: 2px;
+    z-index: 10;
+    white-space: nowrap;
+  }
+
+  .tip {
+    position: fixed;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: rgba(139,92,246,0.5);
+    letter-spacing: 1px;
+    z-index: 10;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="badge">VAH MANA // JESSICA BUENO — CLOUD ENGINEER</div>
+<div class="tip">↑ pressione H para esconder os controles antes de gravar</div>
+
+<canvas id="c"></canvas>
+
+<div class="controls" id="ctrl">
+  <label>velocidade</label>
+  <input type="range" id="speed" min="1" max="10" value="5">
+  <span id="speedVal">5</span>
+
+  <label style="margin-left:8px;">densidade</label>
+  <input type="range" id="density" min="10" max="36" value="18">
+  <span id="densityVal">18</span>
+
+  <button id="pauseBtn">⏸ pausar</button>
+  <button class="hide-btn" onclick="toggleUI()">[ esconder UI ]</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const BG     = '#020B1A';
+const CYAN   = '#00F2FF';
+const BLUE   = '#2A52BE';
+const INDIGO = '#8B5CF6';
+
+let W, H, cols, drops, fontSize;
+let paused = false;
+let speedVal = 5;
+let densityVal = 18;
+let frameCount = 0;
+let uiVisible = true;
+
+const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<>{}[]|/\\ΨΩΛΔΣΘ'.split('');
+
+function setup() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  fontSize = densityVal;
+  cols = Math.floor(W / fontSize);
+  drops = Array.from({ length: cols }, () => Math.random() * -(H / fontSize));
+}
+
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+  const ar = ah>>16, ag = (ah>>8)&0xff, ab_ = ah&0xff;
+  const br = bh>>16, bg_ = (bh>>8)&0xff, bb = bh&0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg_ - ag) * t);
+  const b_ = Math.round(ab_ + (bb - ab_) * t);
+  return `rgb(${r},${g},${b_})`;
+}
+
+function draw() {
+  if (paused) { requestAnimationFrame(draw); return; }
+  frameCount++;
+  const frameSkip = Math.max(1, Math.round(10 / speedVal));
+  if (frameCount % frameSkip !== 0) { requestAnimationFrame(draw); return; }
+
+  ctx.fillStyle = 'rgba(2,11,26,0.06)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = `${fontSize}px 'Courier New', monospace`;
+
+  for (let i = 0; i < drops.length; i++) {
+    const drop = drops[i];
+    const y = drop * fontSize;
+    const x = i * fontSize;
+    const ch = chars[Math.floor(Math.random() * chars.length)];
+
+    let color, blur;
+
+    if (drop <= 1) {
+      color = '#ffffff'; blur = 14;
+    } else if (drop <= 4) {
+      color = CYAN; blur = 8;
+    } else if (drop <= 10) {
+      color = lerpColor(CYAN, BLUE, (drop - 4) / 6); blur = 4;
+    } else if (drop <= 18) {
+      color = lerpColor(BLUE, INDIGO, (drop - 10) / 8); blur = 2;
+    } else {
+      const alpha = Math.max(0, 1 - (drop - 18) / 10);
+      color = `rgba(139,92,246,${(alpha * 0.4).toFixed(2)})`; blur = 0;
+    }
+
+    ctx.shadowColor = blur > 0 ? color : 'transparent';
+    ctx.shadowBlur  = blur;
+    ctx.fillStyle   = color;
+    ctx.fillText(ch, x, y);
+    ctx.shadowBlur  = 0;
+
+    if (y > H && Math.random() > 0.975) drops[i] = 0;
+    drops[i] += 0.5;
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function toggleUI() {
+  uiVisible = !uiVisible;
+  document.getElementById('ctrl').style.display = uiVisible ? 'flex' : 'none';
+  document.querySelector('.badge').style.display = uiVisible ? 'block' : 'none';
+  document.querySelector('.tip').style.display   = uiVisible ? 'block' : 'none';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'h' || e.key === 'H') toggleUI();
+  if (e.key === ' ') { paused = !paused; document.getElementById('pauseBtn').textContent = paused ? '▶ continuar' : '⏸ pausar'; }
+});
+
+setup();
+ctx.fillStyle = BG;
+ctx.fillRect(0, 0, W, H);
+draw();
+
+window.addEventListener('resize', () => { setup(); ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H); });
+
+document.getElementById('speed').addEventListener('input', function() {
+  speedVal = +this.value;
+  document.getElementById('speedVal').textContent = this.value;
+});
+document.getElementById('density').addEventListener('input', function() {
+  densityVal = +this.value;
+  document.getElementById('densityVal').textContent = this.value;
+  setup(); ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+});
+
+document.getElementById('pauseBtn').addEventListener('click', function() {
+  paused = !paused;
+  this.textContent = paused ? '▶ continuar' : '⏸ pausar';
+});
+</script>
+</body>
+</html>
